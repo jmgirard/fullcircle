@@ -256,7 +256,7 @@ server <- function(input, output) {
          cs$x <- sum(cos(d.i * pi/180))
          cs$y <- sum(sin(d.i * pi/180))
          cs$theta.m <- (atan2(cs$y,cs$x) * 180/pi) %% 360
-         cs$v.theta <- (acos(sum(cos((cs$theta.m - d.i) * pi/180)) / n) * 180/pi) %% 360
+         cs$v.theta <- (acos(sum(cos((cs$theta.m - d.i) * pi/180)) / n) * 180/pi) %% 360 #TODO: Verify %% 360 is correct
          cs$ci.lb <- cs$theta.m - 1.96 * (cs$v.theta / sqrt(n))
          cs$ci.ub <- cs$theta.m + 1.96 * (cs$v.theta / sqrt(n))
          return(cs)
@@ -270,14 +270,41 @@ server <- function(input, output) {
             results[1] <- round(cs$x,2)
             results[2] <- round(cs$y,2)
             results[3] <- sprintf("%.1f [%.1f, %.1f]",cs$theta.m,cs$ci.lb,cs$ci.ub)
-            results[4] <- round(cs$v.theta,2)
+            results[4] <- round(cs$v.theta,2) #TODO: Check if bootstrapping is appropriate
             rownames(results) <- "Mean"
          }
       }
       if (input$type=="profile-groups") {
-         #TODO
+         results <- matrix(NA,3,4)
+         rownames(results) <- c("Group 1","Group 2","Difference")
+         colnames(results) <- c("X-Axis","Y-Axis","Theta_m","V_theta")
          if (!is.null(data.use)) {
-            #TODO
+            data.use[,1] <- as.factor(data.use[,1])
+            if (nlevels(data.use[,1]) != 2)
+               return("Error: The number of unique groups must be equal to 2.")
+            #Create separate dataframes for each sample
+            data.g1 <- subset(data.use[,2:ncol(data.use)],data.use[,1]==levels(data.use[,1])[1])
+            data.g2 <- subset(data.use[,2:ncol(data.use)],data.use[,1]==levels(data.use[,1])[2])
+            cs.g1 <- get.cs(as.matrix(data.g1),theta)
+            cs.g2 <- get.cs(as.matrix(data.g2),theta)
+            cs.gd <- list() #TODO: Ask if cs.gd even makes sense
+            cs.gd$x <- cs.g1$x - cs.g2$x
+            cs.gd$y <- cs.g1$y - cs.g2$y
+            cs.gd$theta.m <- (cs.g1$theta.m - cs.g2$theta.m) %% 360 
+            cs.gd$v.theta <- (cs.g1$v.theta - cs.g2$v.theta) %% 360
+            results[1,1] <- round(cs.g1$x,2)
+            results[1,2] <- round(cs.g1$y,2)
+            results[1,3] <- sprintf("%.1f [%.1f, %.1f]",cs.g1$theta.m,cs.g1$ci.lb,cs.g1$ci.ub)
+            results[1,4] <- round(cs.g1$v.theta,2)
+            results[2,1] <- round(cs.g2$x,2)
+            results[2,2] <- round(cs.g2$y,2)
+            results[2,3] <- sprintf("%.1f [%.1f, %.1f]",cs.g2$theta.m,cs.g2$ci.lb,cs.g2$ci.ub)
+            results[2,4] <- round(cs.g2$v.theta,2)
+            results[3,1] <- round(cs.gd$x,2)
+            results[3,2] <- round(cs.gd$y,2)
+            results[3,3] <- sprintf("%.1f",cs.gd$theta.m) #TODO: Check if bootstrapping is appropriate
+            results[3,4] <- round(cs.gd$v.theta,2)
+            rownames(results) <- c(sprintf("%s=%s",input$gmv,levels(data.use[,1])[1]),sprintf("%s=%s",input$gmv,levels(data.use[,1])[2]),"Difference")
          }
       }
       if (input$type=="target-single") {
@@ -357,6 +384,9 @@ server <- function(input, output) {
          }
       }
       if (input$type=="profile-groups") {
+         results <- matrix(NA,3,6)
+         rownames(results) <- c("Group 1","Group 2","Difference")
+         colnames(results) <- c("Elevation","X-Axis","Y-Axis","Amplitude","Displacement","Fit")
          #TODO
       }
       if (input$type=="target-single") {
@@ -396,8 +426,8 @@ server <- function(input, output) {
             if (nlevels(data.use[,1]) != 2)
                return("Error: The number of unique groups must be equal to 2.")
             #Create separate dataframes for each sample
-            data.g1 <- subset(data.use[,2:10],data.use[,1]==levels(data.use[,1])[1])
-            data.g2 <- subset(data.use[,2:10],data.use[,1]==levels(data.use[,1])[2])
+            data.g1 <- subset(data.use[,2:ncol(data.use)],data.use[,1]==levels(data.use[,1])[1])
+            data.g2 <- subset(data.use[,2:ncol(data.use)],data.use[,1]==levels(data.use[,1])[2])
             rmat.g1 <- cor(data.g1)
             rmat.g2 <- cor(data.g2)
             rvec.g1 <- rmat.g1[1,2:ncol(rmat.g1)]
